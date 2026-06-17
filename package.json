@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "msedge-tts": "^2.0.5",
     "twilio": "^6.0.2"
   }
 }

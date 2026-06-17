@@ -12,4 +12,12 @@ async function sendWhatsAppMessage(toNumber, body) {
   });
 }
 
-module.exports = { sendWhatsAppMessage };
+async function sendWhatsAppAudio(toNumber, audioUrl) {
+  return twilioClient.messages.create({
+    from: process.env.TWILIO_WHATSAPP_NUMBER,
+    to: toNumber,
+    mediaUrl: [audioUrl],
+  });
+}
+
+module.exports = { sendWhatsAppMessage, sendWhatsAppAudio };
