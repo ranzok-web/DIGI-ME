@@ -57,20 +57,22 @@ app.post('/webhook/whatsapp', async (req, res) => {
     // Always send text reply
     await sendWhatsAppMessage(fromNumber, reply.speech);
 
-    // Additionally send voice if requested
-    if (wantsVoice) {
-      try {
-        const mp3Buffer = await textToSpeech(reply.speech);
-        const filename = `voice_${entity.user_id}_${Date.now()}.mp3`;
-        const audioUrl = await uploadAudio(mp3Buffer, filename);
-        await sendWhatsAppAudio(fromNumber, audioUrl);
-      } catch (voiceErr) {
-        console.error('Voice generation error:', voiceErr.message);
-        // Don't fail the whole request — text was already sent
-      }
-    }
-
+    // Respond to Twilio immediately (must be within ~15s)
     res.status(200).send('ok');
+
+    // Additionally send voice asynchronously (after response sent)
+    if (wantsVoice) {
+      setImmediate(async () => {
+        try {
+          const mp3Buffer = await textToSpeech(reply.speech);
+          const filename = `voice_${entity.user_id}_${Date.now()}.mp3`;
+          const audioUrl = await uploadAudio(mp3Buffer, filename);
+          await sendWhatsAppAudio(fromNumber, audioUrl);
+        } catch (voiceErr) {
+          console.error('Voice generation error:', voiceErr.message);
+        }
+      });
+    }
   } catch (err) {
     console.error('Webhook error:', err);
     res.status(500).send('error');
