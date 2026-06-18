@@ -84,7 +84,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     // Check if voice or GIF was requested
     const wantsVoice = VOICE_TRIGGER.test(incomingText);
-    const wantsGif = /gif|תמונה|תמונת|איך אתה נראה|הראה לי/i.test(incomingText);
+    const wantsGif = /gif|גיף|תמונה|תמונת|איך אתה נראה|הראה לי/i.test(incomingText);
 
     await appendHistory(entity.user_id, 'user', incomingText);
     const history = await getRecentHistory(entity.user_id);
