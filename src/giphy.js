@@ -27,8 +27,9 @@ async function getMoodGif(happiness, energy) {
         try {
           const json = JSON.parse(data);
           console.log('Giphy status:', res.statusCode, 'data type:', typeof json.data);
-          const gifUrl = json?.data?.images?.original?.url
-            || json?.data?.url
+          // Use downsized URL — more reliable for Twilio delivery
+          const gifUrl = json?.data?.images?.downsized?.url
+            || json?.data?.images?.original?.url
             || null;
           console.log('GIF URL:', gifUrl);
           resolve(gifUrl);

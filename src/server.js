@@ -134,7 +134,12 @@ app.post('/webhook/whatsapp', async (req, res) => {
       setImmediate(async () => {
         try {
           const gifUrl = await getMoodGif(updatedState.happiness, updatedState.energy);
-          if (gifUrl) await sendWhatsAppAudio(fromNumber, gifUrl); // reuse media sender
+          if (gifUrl) {
+            console.log('Sending GIF:', gifUrl);
+            await sendWhatsAppAudio(fromNumber, gifUrl);
+          } else {
+            console.warn('No GIF URL returned from Giphy');
+          }
         } catch (e) {
           console.error('GIF error:', e.message);
         }
