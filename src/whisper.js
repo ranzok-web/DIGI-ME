@@ -2,7 +2,12 @@ const OpenAI = require('openai');
 const https = require('https');
 const http = require('http');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy init — don't crash on startup if key is missing
+let openai;
+function getClient() {
+  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai;
+}
 
 /**
  * Download audio from Twilio URL (requires Basic Auth) and transcribe with Whisper.
@@ -19,7 +24,7 @@ async function transcribeAudio(mediaUrl) {
   const { toFile } = require('openai');
   const file = await toFile(buffer, 'audio.ogg', { type: 'audio/ogg' });
 
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getClient().audio.transcriptions.create({
     file,
     model: 'whisper-1',
     language: 'he', // עברית
