@@ -16,6 +16,7 @@ const { textToSpeech } = require('./elevenlabs');
 const { transcribeAudio } = require('./whisper');
 const { getMoodGif } = require('./giphy');
 const { PERSONALITIES, getPersonality, listPersonalities } = require('./personalities');
+const { startScheduler, parseHour } = require('./scheduler');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -95,6 +96,42 @@ app.post('/webhook/whatsapp', async (req, res) => {
         `💛 קשר:   ${bar(s.bond)} ${s.bond}/100`;
       await sendWhatsAppMessage(fromNumber, msg);
       return res.status(200).send('status');
+    }
+
+    // Schedule command — show or set message times
+    if (/^שעות$/.test(incomingText.trim())) {
+      const prefs = entity.preferences || {};
+      const morning = prefs.schedule_morning !== undefined ? `${prefs.schedule_morning}:00` : 'לא מוגדר';
+      const evening = prefs.schedule_evening !== undefined ? `${prefs.schedule_evening}:00` : 'לא מוגדר';
+      const msg =
+        `⏰ *הודעות מתוזמנות*\n\n` +
+        `🌅 בוקר: ${morning}\n` +
+        `🌙 ערב: ${evening}\n\n` +
+        `לשינוי:\n` +
+        `• \`שעות בוקר 8\` — הודעת בוקר ב-8:00\n` +
+        `• \`שעות ערב 21\` — הודעת ערב ב-21:00\n` +
+        `• \`שעות בוקר כבוי\` — ביטול הודעת בוקר`;
+      await sendWhatsAppMessage(fromNumber, msg);
+      return res.status(200).send('schedule-info');
+    }
+
+    const scheduleMatch = incomingText.trim().match(/^שעות (בוקר|ערב) (.+)$/);
+    if (scheduleMatch) {
+      const type = scheduleMatch[1] === 'בוקר' ? 'schedule_morning' : 'schedule_evening';
+      const val = scheduleMatch[2].trim();
+      if (val === 'כבוי') {
+        await require('./supabase').updatePreferences(entity.user_id, { [type]: null });
+        await sendWhatsAppMessage(fromNumber, `✅ הודעת ${scheduleMatch[1]} בוטלה`);
+      } else {
+        const hour = parseHour(val);
+        if (hour === null) {
+          await sendWhatsAppMessage(fromNumber, 'שלח מספר שעה, למשל: `שעות בוקר 8`');
+        } else {
+          await require('./supabase').updatePreferences(entity.user_id, { [type]: hour });
+          await sendWhatsAppMessage(fromNumber, `✅ הודעת ${scheduleMatch[1]} תישלח ב-${hour}:00 כל יום`);
+        }
+      }
+      return res.status(200).send('schedule-set');
     }
 
     // Skin/personality list command
@@ -202,6 +239,9 @@ app.post('/jobs/decay', async (_req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// Start scheduled morning/evening messages
+startScheduler();
 
 // Run decay job every 4 hours automatically
 cron.schedule('0 */4 * * *', async () => {
