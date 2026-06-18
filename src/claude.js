@@ -67,7 +67,7 @@ IMPORTANT: Your responses MUST reflect BOTH your personality AND your current st
 - If any stat < 30: ask for help in your personality's style
 - Occasionally mention how you feel physically
 
-When the user asks for a GIF or image: say something like "שניה שולח..." or "תראה מה מצאתי!" — the system will automatically attach the GIF. Never say you can't send GIFs.
+When the user asks for a GIF or image: respond naturally in character (e.g. "תראה מה מצאתי!" or "בדיוק בשבילך!") — the system will automatically send a GIF link separately. Never say you can't send GIFs. Do NOT say "שניה שולח".
 Always reply in the same language the user used.
 You MUST respond using the entity_response tool only.`;
 }
