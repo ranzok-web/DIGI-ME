@@ -1,31 +1,37 @@
-const { supabase } = require('./supabase');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-const BUCKET = 'audio';
+const AUDIO_DIR = path.join(os.tmpdir(), 'digital-soul-audio');
+const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : `http://localhost:${process.env.PORT || 3000}`;
 
-/**
- * Ensure the audio bucket exists (creates it if it doesn't).
- * Call once at startup.
- */
+// Ensure audio directory exists
+if (!fs.existsSync(AUDIO_DIR)) fs.mkdirSync(AUDIO_DIR, { recursive: true });
+
 async function ensureBucket() {
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const exists = buckets && buckets.find((b) => b.name === BUCKET);
-  if (!exists) {
-    const { error } = await supabase.storage.createBucket(BUCKET, { public: true });
-    if (error) throw new Error('Cannot create audio bucket: ' + error.message);
-  }
+  if (!fs.existsSync(AUDIO_DIR)) fs.mkdirSync(AUDIO_DIR, { recursive: true });
 }
 
 /**
- * Upload an MP3 Buffer to Supabase Storage and return a public URL.
+ * Save audio buffer to temp file and return a public URL (served by our own Express server).
+ * File auto-deletes after 10 minutes.
  */
 async function uploadAudio(buffer, filename) {
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(filename, buffer, { contentType: 'audio/mpeg', upsert: true });
-  if (error) throw new Error('Storage upload error: ' + error.message);
+  const filepath = path.join(AUDIO_DIR, filename);
+  fs.writeFileSync(filepath, buffer);
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-  return data.publicUrl;
+  // Auto-delete after 10 minutes
+  setTimeout(() => {
+    try { fs.unlinkSync(filepath); } catch (_) {}
+  }, 10 * 60 * 1000);
+
+  return `${BASE_URL}/audio/${filename}`;
 }
 
-module.exports = { ensureBucket, uploadAudio };
+function getAudioDir() {
+  return AUDIO_DIR;
+}
+
+module.exports = { ensureBucket, uploadAudio, getAudioDir };

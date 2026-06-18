@@ -10,7 +10,7 @@ const { getEntityReply } = require('./claude');
 const { applyAction } = require('./actions');
 const { sendWhatsAppMessage, sendWhatsAppAudio } = require('./twilio');
 const { runDecayJob } = require('./decay');
-const { ensureBucket, uploadAudio } = require('./storage');
+const { ensureBucket, uploadAudio, getAudioDir } = require('./storage');
 const { textToSpeech } = require('./elevenlabs');
 
 const app = express();
@@ -21,6 +21,10 @@ app.use(express.json());
 ensureBucket().catch((e) => console.warn('Audio bucket warning:', e.message));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Serve temporary audio files
+const path = require('path');
+app.use('/audio', require('express').static(getAudioDir()));
 
 // Detect voice request: user sent "דבר אלי" / "speak" / 🎙️ etc.
 const VOICE_TRIGGER = /^(דבר|קול|speak|voice|🎙️?\s*$)/i;
