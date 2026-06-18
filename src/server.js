@@ -44,6 +44,11 @@ app.post('/webhook/whatsapp', async (req, res) => {
     // Incoming voice message from user — transcribe with Whisper
     const mediaUrl = req.body.MediaUrl0;
     const mediaType = (req.body.MediaContentType0 || '');
+    // Incoming image/GIF from user — treat as a fun reaction
+    if (!incomingText && mediaUrl && (mediaType.startsWith('image') || mediaType.startsWith('video'))) {
+      incomingText = 'המשתמש שלח לי תמונה/GIF — תגיב בהתאם לאישיות שלך, בצורה מפתיעה ומצחיקה';
+    }
+
     if (!incomingText && mediaUrl && mediaType.startsWith('audio')) {
       try {
         const transcribed = await transcribeAudio(mediaUrl);
