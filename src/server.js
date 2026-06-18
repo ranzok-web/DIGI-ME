@@ -12,6 +12,7 @@ const { sendWhatsAppMessage, sendWhatsAppAudio } = require('./twilio');
 const { runDecayJob } = require('./decay');
 const { ensureBucket, uploadAudio, getAudioDir } = require('./storage');
 const { textToSpeech } = require('./elevenlabs');
+const { transcribeAudio } = require('./whisper');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -33,11 +34,30 @@ const VOICE_TRIGGER = /דבר|קול|הקלטה|שמע|תקליט|הודעה ק�
 app.post('/webhook/whatsapp', async (req, res) => {
   try {
     const fromNumber = req.body.From;
-    const incomingText = (req.body.Body || '').trim();
+    let incomingText = (req.body.Body || '').trim();
 
-    if (!fromNumber || !incomingText) {
-      return res.status(200).send('ignored');
+    if (!fromNumber) return res.status(200).send('ignored');
+
+    // Incoming voice message from user — transcribe with Whisper
+    const mediaUrl = req.body.MediaUrl0;
+    const mediaType = (req.body.MediaContentType0 || '');
+    if (!incomingText && mediaUrl && mediaType.startsWith('audio')) {
+      try {
+        const transcribed = await transcribeAudio(mediaUrl);
+        if (transcribed) {
+          incomingText = transcribed;
+        } else {
+          await sendWhatsAppMessage(fromNumber, 'לא הצלחתי להבין את ההקלטה, נסה שוב 🎙️');
+          return res.status(200).send('transcribe-failed');
+        }
+      } catch (e) {
+        console.error('Whisper error:', e.message);
+        await sendWhatsAppMessage(fromNumber, 'שגיאה בתמלול ההקלטה 😕 כתוב לי טקסט בינתיים');
+        return res.status(200).send('transcribe-error');
+      }
     }
+
+    if (!incomingText) return res.status(200).send('ignored');
 
     const entity = await getOrCreateEntity(fromNumber);
 
