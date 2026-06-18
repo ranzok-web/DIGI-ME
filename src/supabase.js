@@ -64,6 +64,22 @@ async function getRecentHistory(userId, limit = 12) {
   return data.reverse();
 }
 
+async function updatePreferences(userId, partialPrefs) {
+  const { data: current, error: getErr } = await supabase
+    .from('users_entities')
+    .select('preferences')
+    .eq('user_id', userId)
+    .single();
+  if (getErr) throw getErr;
+
+  const merged = { ...current.preferences, ...partialPrefs };
+  const { error } = await supabase
+    .from('users_entities')
+    .update({ preferences: merged })
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 async function getAllEntities() {
   const { data, error } = await supabase.from('users_entities').select('*');
   if (error) throw error;
@@ -74,6 +90,7 @@ module.exports = {
   supabase,
   getOrCreateEntity,
   updateEntityState,
+  updatePreferences,
   appendHistory,
   getRecentHistory,
   getAllEntities,

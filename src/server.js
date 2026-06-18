@@ -15,6 +15,7 @@ const { ensureBucket, uploadAudio, getAudioDir } = require('./storage');
 const { textToSpeech } = require('./elevenlabs');
 const { transcribeAudio } = require('./whisper');
 const { getMoodGif } = require('./giphy');
+const { PERSONALITIES, listPersonalities } = require('./personalities');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -80,6 +81,25 @@ app.post('/webhook/whatsapp', async (req, res) => {
         `💛 קשר:   ${bar(s.bond)} ${s.bond}/100`;
       await sendWhatsAppMessage(fromNumber, msg);
       return res.status(200).send('status');
+    }
+
+    // Personality list command
+    if (/^\/?(אישיות|personality|שנה אישיות|בחר אישיות)$/i.test(incomingText)) {
+      const current = entity.preferences?.voice_vibe || 'arsit';
+      const p = PERSONALITIES[current];
+      const msg = `🎭 *בחר אישיות לדמות*\n\nנוכחית: ${p?.emoji} ${p?.name}\n\n${listPersonalities()}\n\nשלח את שם האישיות באנגלית (למשל: \`joker\`)`;
+      await sendWhatsAppMessage(fromNumber, msg);
+      return res.status(200).send('personality-list');
+    }
+
+    // Switch personality command
+    const personalityKeys = Object.keys(PERSONALITIES);
+    if (personalityKeys.includes(incomingText.toLowerCase().trim())) {
+      const key = incomingText.toLowerCase().trim();
+      const p = PERSONALITIES[key];
+      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: key });
+      await sendWhatsAppMessage(fromNumber, `${p.emoji} האישיות שונתה ל*${p.name}*!`);
+      return res.status(200).send('personality-changed');
     }
 
     // Check if voice or GIF was requested

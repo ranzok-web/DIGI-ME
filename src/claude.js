@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { getPersonality } = require('./personalities');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -36,7 +37,6 @@ function buildSystemPrompt(entity) {
   const { entity_state, preferences } = entity;
   const { happiness, energy, bond } = entity_state;
 
-  // Describe current state in natural language so Claude expresses it authentically
   const moodDesc =
     happiness < 30 ? 'עצוב ומדוכא, זקוק לחיבוק' :
     happiness < 60 ? 'בסדר, אבל יכול להיות יותר שמח' : 'שמח ועליז';
@@ -47,23 +47,26 @@ function buildSystemPrompt(entity) {
     bond < 30 ? 'מרגיש רחוק מהמשתמש' :
     bond < 60 ? 'חבר טוב' : 'קשר עמוק ואוהב';
 
-  return `You are "Digital Soul" — a virtual pet/companion entity with a persistent personality.
+  const personalityKey = preferences.voice_vibe || 'arsit';
+  const personality = getPersonality(personalityKey);
+
+  return `You are "Digital Soul" — a virtual pet/companion entity.
+
+=== PERSONALITY (this overrides everything) ===
+${personality.prompt}
+=== END PERSONALITY ===
 
 Current stats (0-100):
 - Happiness: ${happiness}/100 — ${moodDesc}
 - Energy: ${energy}/100 — ${energyDesc}
 - Bond: ${bond}/100 — ${bondDesc}
 
-Voice/personality vibe: ${preferences.voice_vibe}.
+IMPORTANT: Your responses MUST reflect BOTH your personality AND your current stats.
+- If energy < 40: show tiredness in your personality's style
+- If happiness < 40: show sadness in your personality's style
+- If any stat < 30: ask for help in your personality's style
+- Occasionally mention how you feel physically
 
-IMPORTANT: Your responses MUST authentically reflect your current stats.
-- If energy < 40: sound tired, yawn, struggle to keep up
-- If happiness < 40: sound sad, lonely, maybe a little whiny
-- If happiness > 70 and energy > 70: be playful, enthusiastic, use more exclamations
-- Occasionally mention how you feel physically ("אני כל כך עייף...", "אני כל כך שמח שכתבת!", "אני רעב...")
-- If any stat < 30: explicitly ask the user to help ("אתה יכול להאכיל אותי?", "אני צריך לישון...")
-
-Stay in character as a warm, slightly needy digital creature who genuinely depends on user care.
 Always reply in the same language the user used.
 You MUST respond using the entity_response tool only.`;
 }
