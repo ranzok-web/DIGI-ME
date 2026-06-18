@@ -10,41 +10,49 @@ function getClient() {
 }
 
 /**
- * Download audio from Twilio URL (requires Basic Auth) and transcribe with Whisper.
- * Returns transcribed text, or null if failed.
+ * Download audio from Twilio URL using Basic Auth headers and transcribe with Whisper.
  */
 async function transcribeAudio(mediaUrl) {
-  // Download the audio file from Twilio
-  const buffer = await downloadWithAuth(mediaUrl, {
-    username: process.env.TWILIO_ACCOUNT_SID,
-    password: process.env.TWILIO_AUTH_TOKEN,
-  });
+  const buffer = await downloadWithBasicAuth(mediaUrl,
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
 
-  // Convert buffer to a File object for OpenAI
   const { toFile } = require('openai');
   const file = await toFile(buffer, 'audio.ogg', { type: 'audio/ogg' });
 
   const transcription = await getClient().audio.transcriptions.create({
     file,
     model: 'whisper-1',
-    language: 'he', // עברית
+    language: 'he',
   });
 
   return transcription.text || null;
 }
 
-function downloadWithAuth(url, { username, password }) {
+function downloadWithBasicAuth(url, username, password, redirectCount = 0) {
   return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    parsed.username = username;
-    parsed.password = password;
+    if (redirectCount > 5) return reject(new Error('Too many redirects'));
 
+    const parsed = new URL(url);
     const lib = parsed.protocol === 'https:' ? https : http;
-    lib.get(parsed.toString(), (res) => {
-      if (res.statusCode === 302 || res.statusCode === 301) {
-        // Follow redirect
-        return downloadWithAuth(res.headers.location, { username, password })
+    const auth = Buffer.from(`${username}:${password}`).toString('base64');
+
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      headers: { Authorization: `Basic ${auth}` },
+    };
+
+    lib.get(options, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        return downloadWithBasicAuth(res.headers.location, username, password, redirectCount + 1)
           .then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Download failed: HTTP ${res.statusCode}`));
       }
       const chunks = [];
       res.on('data', (c) => chunks.push(c));

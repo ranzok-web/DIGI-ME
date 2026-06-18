@@ -67,6 +67,19 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return res.status(200).send('muted');
     }
 
+    // Status command — show current entity stats
+    if (/^\/?(סטטוס|מצב|status|stats)$/i.test(incomingText)) {
+      const s = entity.entity_state;
+      const bar = (v) => '█'.repeat(Math.round(v / 10)) + '░'.repeat(10 - Math.round(v / 10));
+      const msg =
+        `📊 *מצב הנשמה שלך*\n\n` +
+        `😊 אושר:  ${bar(s.happiness)} ${s.happiness}/100\n` +
+        `⚡ אנרגיה: ${bar(s.energy)} ${s.energy}/100\n` +
+        `💛 קשר:   ${bar(s.bond)} ${s.bond}/100`;
+      await sendWhatsAppMessage(fromNumber, msg);
+      return res.status(200).send('status');
+    }
+
     // Check if voice was requested
     const wantsVoice = VOICE_TRIGGER.test(incomingText);
 
