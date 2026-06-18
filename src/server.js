@@ -134,6 +134,13 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return res.status(200).send('skin-changed');
     }
 
+    // Respond to Twilio immediately — must be within 15s or it retries
+    res.status(200).send('ok');
+
+    // Process everything async so Twilio doesn't retry
+    setImmediate(async () => {
+    try {
+
     // Check if voice or GIF was requested
     const wantsVoice = VOICE_TRIGGER.test(incomingText);
     const wantsGif = /gif|גיף|תמונה|תמונת|איך אתה נראה|הראה לי/i.test(incomingText);
@@ -146,49 +153,42 @@ app.post('/webhook/whatsapp', async (req, res) => {
     await updateEntityState(entity.user_id, updatedState);
     await appendHistory(entity.user_id, 'entity', reply.speech);
 
-    // If voice requested, send a brief placeholder; otherwise send full text
     if (wantsVoice) {
       await sendWhatsAppMessage(fromNumber, '🎙️ שניה...');
     } else {
       await sendWhatsAppMessage(fromNumber, reply.speech);
     }
 
-    // Respond to Twilio immediately (must be within ~15s)
-    res.status(200).send('ok');
-
-    // Send GIF asynchronously if requested
     if (wantsGif) {
-      setImmediate(async () => {
-        try {
-          const gifUrl = await getMoodGif(updatedState.happiness, updatedState.energy);
-          if (gifUrl) {
-            await sendWhatsAppMessage(fromNumber, `🎞️ ${gifUrl}`);
-          } else {
-            await sendWhatsAppMessage(fromNumber, 'לא מצאתי GIF הפעם 😕');
-          }
-        } catch (e) {
-          console.error('GIF error:', e.message);
+      try {
+        const gifUrl = await getMoodGif(updatedState.happiness, updatedState.energy);
+        if (gifUrl) {
+          await sendWhatsAppMessage(fromNumber, `🎞️ ${gifUrl}`);
         }
-      });
+      } catch (e) {
+        console.error('GIF error:', e.message);
+      }
     }
 
-    // Additionally send voice asynchronously (after response sent)
     if (wantsVoice) {
-      setImmediate(async () => {
-        try {
-          const skinVoice = getPersonality(entity.preferences?.voice_vibe, entity.preferences?.custom_description)?.voice;
-          const mp3Buffer = await textToSpeech(reply.speech, skinVoice);
-          const filename = `voice_${entity.user_id}_${Date.now()}.mp3`;
-          const audioUrl = await uploadAudio(mp3Buffer, filename);
-          await sendWhatsAppAudio(fromNumber, audioUrl);
-        } catch (voiceErr) {
-          console.error('Voice generation error:', voiceErr.message);
-        }
-      });
+      try {
+        const skinVoice = getPersonality(entity.preferences?.voice_vibe, entity.preferences?.custom_description)?.voice;
+        const mp3Buffer = await textToSpeech(reply.speech, skinVoice);
+        const filename = `voice_${entity.user_id}_${Date.now()}.mp3`;
+        const audioUrl = await uploadAudio(mp3Buffer, filename);
+        await sendWhatsAppAudio(fromNumber, audioUrl);
+      } catch (voiceErr) {
+        console.error('Voice generation error:', voiceErr.message);
+      }
     }
+
+    } catch (err) {
+      console.error('Webhook processing error:', err);
+    }
+    }); // end setImmediate
   } catch (err) {
     console.error('Webhook error:', err);
-    res.status(500).send('error');
+    res.status(200).send('error');
   }
 });
 
