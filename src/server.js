@@ -7,7 +7,7 @@ const {
   getRecentHistory,
 } = require('./supabase');
 const { getEntityReply } = require('./claude');
-const { applyAction } = require('./actions');
+const { applyAction, hungerStatus, DEFAULT_STATE } = require('./actions');
 const { sendWhatsAppMessage, sendWhatsAppAudio } = require('./twilio');
 const { runDecayJob } = require('./decay');
 const cron = require('node-cron');
@@ -87,15 +87,43 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     // Status command — show current entity stats
     if (/^\/?(סטטוס|מצב)$/i.test(incomingText)) {
-      const s = entity.entity_state;
-      const bar = (v) => '█'.repeat(Math.round(v / 10)) + '░'.repeat(10 - Math.round(v / 10));
+      const s = { ...DEFAULT_STATE, ...entity.entity_state };
+      const bar = (v) => '█'.repeat(Math.round((v||0) / 10)) + '░'.repeat(10 - Math.round((v||0) / 10));
+      const hunger = hungerStatus(s);
+      const alive = s.is_alive !== false ? '✅ חי' : '💀 מת';
       const msg =
-        `📊 *מצב הנשמה שלך*\n\n` +
-        `😊 אושר:  ${bar(s.happiness)} ${s.happiness}/100\n` +
-        `⚡ אנרגיה: ${bar(s.energy)} ${s.energy}/100\n` +
-        `💛 קשר:   ${bar(s.bond)} ${s.bond}/100`;
+        `📊 *מצב הנשמה*\n\n` +
+        `${alive}\n\n` +
+        `😊 אושר:        ${bar(s.happiness)} ${s.happiness}/100\n` +
+        `⚡ אנרגיה:      ${bar(s.energy)} ${s.energy}/100\n` +
+        `💛 קשר:         ${bar(s.bond)} ${s.bond}/100\n\n` +
+        `🍽️ רעב:         ${bar(s.hunger)} ${hunger}\n` +
+        `🧼 ניקיון בוט:  ${bar(s.bot_clean)} ${Math.round(s.bot_clean)}/100\n` +
+        `🏠 ניקיון בית:  ${bar(s.house_clean)} ${Math.round(s.house_clean)}/100\n\n` +
+        `פקודות: *האכל* | *נקה* | *נקה בית*`;
       await sendWhatsAppMessage(fromNumber, msg);
       return res.status(200).send('status');
+    }
+
+    // Care commands
+    const careMap = { 'האכל': 'feed', 'נקה בית': 'clean_house', 'נקה': 'clean', 'החייה': 'revive' };
+    const careAction = careMap[incomingText.trim()];
+    if (careAction) {
+      const s = { ...DEFAULT_STATE, ...entity.entity_state };
+      if (careAction === 'revive' && s.is_alive) {
+        await sendWhatsAppMessage(fromNumber, 'אני בחיים! לא צריך להחיות אותי 😅');
+        return res.status(200).send('ok');
+      }
+      const newState = applyAction(s, careAction, {});
+      await updateEntityState(entity.user_id, newState);
+      const responses = {
+        feed: '😋 אמממ... תודה! הייתי רעב כל כך!',
+        clean: '✨ אוה וואו, אני מרגיש טרי לגמרי!',
+        clean_house: '🏠 הבית מבריק! תודה שדאגת לנו!',
+        revive: '💫 אני... חי?! תודה שהחזרת אותי!!',
+      };
+      await sendWhatsAppMessage(fromNumber, responses[careAction]);
+      return res.status(200).send('care');
     }
 
     // Schedule command — show or set message times

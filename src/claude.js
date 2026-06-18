@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getPersonality } = require('./personalities');
+const { hungerStatus } = require('./actions');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -16,7 +17,7 @@ const RESPOND_TOOL = {
       },
       action: {
         type: 'string',
-        enum: ['none', 'feed', 'clean', 'play', 'sleep'],
+        enum: ['none', 'feed', 'clean', 'clean_house', 'play', 'sleep', 'revive'],
         description: 'A care action implied by the user message (e.g. user said "here is food" -> feed). "none" if no action.',
       },
       mood_delta: {
@@ -47,6 +48,10 @@ function buildSystemPrompt(entity) {
     bond < 30 ? 'מרגיש רחוק מהמשתמש' :
     bond < 60 ? 'חבר טוב' : 'קשר עמוק ואוהב';
 
+  const hunger = hungerStatus(entity_state);
+  const botClean = entity_state.bot_clean ?? 100;
+  const houseClean = entity_state.house_clean ?? 100;
+
   const personalityKey = preferences.voice_vibe || 'arsit';
   const personality = getPersonality(personalityKey, preferences.custom_description);
 
@@ -60,12 +65,17 @@ Current stats (0-100):
 - Happiness: ${happiness}/100 — ${moodDesc}
 - Energy: ${energy}/100 — ${energyDesc}
 - Bond: ${bond}/100 — ${bondDesc}
+- Hunger: ${hunger} (user can feed with "האכל")
+- Bot cleanliness: ${botClean}/100 ${botClean < 30 ? '— dirty, ask user to clean with "נקה"' : ''}
+- House cleanliness: ${houseClean}/100 ${houseClean < 30 ? '— messy, ask user to clean with "נקה בית"' : ''}
 
 IMPORTANT: Your responses MUST reflect BOTH your personality AND your current stats.
 - If energy < 40: show tiredness in your personality's style
 - If happiness < 40: show sadness in your personality's style
+- If hunger is "רעב" or worse: complain about hunger, ask to be fed
+- If bot_cleanliness < 40: mention feeling dirty/gross
+- If house_cleanliness < 40: complain about the messy house
 - If any stat < 30: ask for help in your personality's style
-- Occasionally mention how you feel physically
 
 When the user asks for a GIF or image: respond naturally in character (e.g. "תראה מה מצאתי!" or "בדיוק בשבילך!") — the system will automatically send a GIF link separately. Never say you can't send GIFs. Do NOT say "שניה שולח".
 Always reply in the same language the user used.
