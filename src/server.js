@@ -83,11 +83,13 @@ app.post('/webhook/whatsapp', async (req, res) => {
     if (/^פקודות$/.test(incomingText.trim())) {
       const msg =
         `📋 *רשימת פקודות*\n\n` +
-        `*טיפול בדמות:*\n` +
-        `• \`האכל\` — האכלה\n` +
-        `• \`נקה\` — ניקוי הדמות\n` +
-        `• \`נקה בית\` — ניקוי הבית\n` +
-        `• \`החייה\` — החייה לאחר מוות\n\n` +
+        `*טיפול:*\n` +
+        `• \`האכל\` | \`נקה\` | \`נקה בית\` | \`החייה\`\n\n` +
+        `*פעולות חיוביות:*\n` +
+        `• \`מתנה\` 🎁 | \`חיבוק\` 🤗 | \`שבח\` 🥹\n` +
+        `• \`משחק\` 🎮 | \`שיר\` 🎵 | \`טיול\` 🌿\n\n` +
+        `*פעולות שליליות:*\n` +
+        `• \`מכה\` 👊 | \`צעקה\` 😨 | \`גידוף\` 💔 | \`התעלמות\` 🥺\n\n` +
         `*מידע:*\n` +
         `• \`מצב\` — סטטוס מלא (אושר, רעב, ניקיון)\n` +
         `• \`סקין\` — רשימת האישיויות הזמינות\n` +
@@ -131,7 +133,14 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 
     // Care commands
-    const careMap = { 'האכל': 'feed', 'נקה בית': 'clean_house', 'נקה': 'clean', 'החייה': 'revive' };
+    const careMap = {
+      // טיפול
+      'האכל': 'feed', 'נקה': 'clean', 'נקה בית': 'clean_house', 'החייה': 'revive',
+      // חיובי
+      'מתנה': 'gift', 'חיבוק': 'hug', 'שבח': 'praise', 'משחק': 'game', 'שיר': 'song', 'טיול': 'walk',
+      // שלילי
+      'מכה': 'hit', 'צעקה': 'yell', 'גידוף': 'insult', 'התעלמות': 'ignore',
+    };
     const careAction = careMap[incomingText.trim()];
     if (careAction) {
       const s = { ...DEFAULT_STATE, ...entity.entity_state };
@@ -142,10 +151,20 @@ app.post('/webhook/whatsapp', async (req, res) => {
       const newState = applyAction(s, careAction, {});
       await updateEntityState(entity.user_id, newState);
       const responses = {
-        feed: '😋 אמממ... תודה! הייתי רעב כל כך!',
-        clean: '✨ אוה וואו, אני מרגיש טרי לגמרי!',
-        clean_house: '🏠 הבית מבריק! תודה שדאגת לנו!',
-        revive: '💫 אני... חי?! תודה שהחזרת אותי!!',
+        feed:       '😋 אמממ... תודה! הייתי רעב כל כך!',
+        clean:      '✨ אוה וואו, אני מרגיש טרי לגמרי!',
+        clean_house:'🏠 הבית מבריק! תודה שדאגת לנו!',
+        revive:     '💫 אני... חי?! תודה שהחזרת אותי!!',
+        gift:       '🎁 מתנה?! בשבילי?! אתה הכי טוב!!',
+        hug:        '🤗 חיבוק חם... בדיוק מה שהייתי צריך.',
+        praise:     '🥹 וואו... תודה. זה ממש אומר לי הרבה.',
+        game:       '🎮 יש! בואו נשחק!! אני כבר מתרגש!',
+        song:       '🎵 לה לה לה~ שיר יפה! אהבתי!!',
+        walk:       '🌿 יצאנו לטיול ביחד~ כל כך כיף!',
+        hit:        '😢 ...כאב לי. למה עשית את זה?',
+        yell:       '😨 אל תצעק עלי... אני מפחד.',
+        insult:     '💔 ...זה פגע בי. ממש פגע.',
+        ignore:     '🥺 ...אתה בכלל מסתכל עלי?',
       };
       await sendWhatsAppMessage(fromNumber, responses[careAction]);
       return res.status(200).send('care');

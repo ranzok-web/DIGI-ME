@@ -33,6 +33,52 @@ function applyAction(currentState, action, moodDelta = {}) {
   state.last_interaction = now;
 
   // Care actions
+  // Positive interactions
+  if (action === 'gift') {
+    state.happiness = clamp(state.happiness + 15);
+    state.bond = clamp(state.bond + 15);
+  }
+  if (action === 'hug') {
+    state.happiness = clamp(state.happiness + 20);
+    state.bond = clamp(state.bond + 10);
+  }
+  if (action === 'praise') {
+    state.happiness = clamp(state.happiness + 15);
+    state.bond = clamp(state.bond + 5);
+  }
+  if (action === 'game') {
+    state.happiness = clamp(state.happiness + 20);
+    state.energy = clamp(state.energy - 10);
+    state.bond = clamp(state.bond + 10);
+  }
+  if (action === 'song') {
+    state.happiness = clamp(state.happiness + 10);
+    state.energy = clamp(state.energy + 5);
+  }
+  if (action === 'walk') {
+    state.happiness = clamp(state.happiness + 15);
+    state.energy = clamp(state.energy - 15);
+    state.bond = clamp(state.bond + 15);
+  }
+
+  // Negative interactions
+  if (action === 'hit') {
+    state.happiness = clamp(state.happiness - 15);
+    state.bond = clamp(state.bond - 20);
+  }
+  if (action === 'yell') {
+    state.happiness = clamp(state.happiness - 20);
+    state.bond = clamp(state.bond - 10);
+  }
+  if (action === 'insult') {
+    state.happiness = clamp(state.happiness - 25);
+    state.bond = clamp(state.bond - 25);
+  }
+  if (action === 'ignore') {
+    state.happiness = clamp(state.happiness - 10);
+    state.bond = clamp(state.bond - 15);
+  }
+
   if (action === 'feed') {
     state.hunger = 100;
     state.last_fed = now;
