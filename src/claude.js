@@ -48,7 +48,7 @@ function buildSystemPrompt(entity) {
     bond < 60 ? 'חבר טוב' : 'קשר עמוק ואוהב';
 
   const personalityKey = preferences.voice_vibe || 'arsit';
-  const personality = getPersonality(personalityKey);
+  const personality = getPersonality(personalityKey, preferences.custom_description);
 
   return `You are "Digital Soul" — a virtual pet/companion entity.
 

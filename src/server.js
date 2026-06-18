@@ -15,7 +15,7 @@ const { ensureBucket, uploadAudio, getAudioDir } = require('./storage');
 const { textToSpeech } = require('./elevenlabs');
 const { transcribeAudio } = require('./whisper');
 const { getMoodGif } = require('./giphy');
-const { PERSONALITIES, listPersonalities } = require('./personalities');
+const { PERSONALITIES, getPersonality, listPersonalities } = require('./personalities');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -88,23 +88,41 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return res.status(200).send('status');
     }
 
-    // Personality list command
-    if (/^\/?(אישיות|personality|שנה אישיות|בחר אישיות)$/i.test(incomingText)) {
+    // Skin/personality list command
+    if (/^\/?(סקין|אישיות|skin|personality|שנה אישיות|בחר אישיות)$/i.test(incomingText)) {
       const current = entity.preferences?.voice_vibe || 'arsit';
-      const p = PERSONALITIES[current];
-      const msg = `🎭 *בחר אישיות לדמות*\n\nנוכחית: ${p?.emoji} ${p?.name}\n\n${listPersonalities()}\n\nשלח את שם האישיות באנגלית (למשל: \`joker\`)`;
+      const p = PERSONALITIES[current] || { emoji: '✨', name: 'מותאם אישית' };
+      const msg = `🎭 *בחר סקין לדמות*\n\nנוכחי: ${p.emoji} ${p.name}\n\n${listPersonalities()}`;
       await sendWhatsAppMessage(fromNumber, msg);
-      return res.status(200).send('personality-list');
+      return res.status(200).send('skin-list');
     }
 
-    // Switch personality command
+    // Custom skin — start flow
+    if (incomingText.toLowerCase().trim() === 'custom') {
+      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: 'custom', awaiting_custom_desc: true });
+      await sendWhatsAppMessage(fromNumber, '✏️ *סקין מותאם אישית*\n\nתאר לי את הדמות שאתה רוצה — אישיות, סגנון דיבור, מאפיינים מיוחדים.\n\nלמשל: "רובוט ממאדים שמדבר בגוף שלישי ואוהב מתמטיקה"');
+      return res.status(200).send('custom-start');
+    }
+
+    // Custom skin — receive description
+    if (entity.preferences?.awaiting_custom_desc) {
+      await require('./supabase').updatePreferences(entity.user_id, {
+        voice_vibe: 'custom',
+        custom_description: incomingText,
+        awaiting_custom_desc: false,
+      });
+      await sendWhatsAppMessage(fromNumber, `✨ *סקין נשמר!*\n\nהדמות שלך: "${incomingText}"\n\nמעכשיו הדמות תדבר בסגנון הזה!`);
+      return res.status(200).send('custom-saved');
+    }
+
+    // Switch to preset skin
     const personalityKeys = Object.keys(PERSONALITIES);
     if (personalityKeys.includes(incomingText.toLowerCase().trim())) {
       const key = incomingText.toLowerCase().trim();
       const p = PERSONALITIES[key];
-      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: key });
-      await sendWhatsAppMessage(fromNumber, `${p.emoji} האישיות שונתה ל*${p.name}*!`);
-      return res.status(200).send('personality-changed');
+      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: key, awaiting_custom_desc: false });
+      await sendWhatsAppMessage(fromNumber, `${p.emoji} הסקין שונה ל*${p.name}*!`);
+      return res.status(200).send('skin-changed');
     }
 
     // Check if voice or GIF was requested
@@ -150,7 +168,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
     if (wantsVoice) {
       setImmediate(async () => {
         try {
-          const mp3Buffer = await textToSpeech(reply.speech);
+          const skinVoice = getPersonality(entity.preferences?.voice_vibe, entity.preferences?.custom_description)?.voice;
+          const mp3Buffer = await textToSpeech(reply.speech, skinVoice);
           const filename = `voice_${entity.user_id}_${Date.now()}.mp3`;
           const audioUrl = await uploadAudio(mp3Buffer, filename);
           await sendWhatsAppAudio(fromNumber, audioUrl);
