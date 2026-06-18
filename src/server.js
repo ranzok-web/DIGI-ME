@@ -85,7 +85,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 
     // Status command — show current entity stats
-    if (/^\/?(סטטוס|מצב|status|stats)$/i.test(incomingText)) {
+    if (/^\/?(סטטוס|מצב)$/i.test(incomingText)) {
       const s = entity.entity_state;
       const bar = (v) => '█'.repeat(Math.round(v / 10)) + '░'.repeat(10 - Math.round(v / 10));
       const msg =
@@ -98,7 +98,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 
     // Skin/personality list command
-    if (/^\/?(סקין|אישיות|skin|personality|שנה אישיות|בחר אישיות)$/i.test(incomingText)) {
+    if (/^\/?(סקין|אישיות|שנה אישיות|בחר אישיות)$/i.test(incomingText)) {
       const current = entity.preferences?.voice_vibe || 'arsit';
       const p = PERSONALITIES[current] || { emoji: '✨', name: 'מותאם אישית' };
       const msg = `🎭 *בחר סקין לדמות*\n\nנוכחי: ${p.emoji} ${p.name}\n\n${listPersonalities()}`;
@@ -107,8 +107,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 
     // Custom skin — start flow
-    if (incomingText.toLowerCase().trim() === 'custom') {
-      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: 'custom', awaiting_custom_desc: true });
+    if (incomingText.trim() === 'מותאם') {
+      await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: 'מותאם', awaiting_custom_desc: true });
       await sendWhatsAppMessage(fromNumber, '✏️ *סקין מותאם אישית*\n\nתאר לי את הדמות שאתה רוצה — אישיות, סגנון דיבור, מאפיינים מיוחדים.\n\nלמשל: "רובוט ממאדים שמדבר בגוף שלישי ואוהב מתמטיקה"');
       return res.status(200).send('custom-start');
     }
@@ -116,7 +116,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     // Custom skin — receive description
     if (entity.preferences?.awaiting_custom_desc) {
       await require('./supabase').updatePreferences(entity.user_id, {
-        voice_vibe: 'custom',
+        voice_vibe: 'מותאם',
         custom_description: incomingText,
         awaiting_custom_desc: false,
       });
@@ -126,8 +126,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     // Switch to preset skin
     const personalityKeys = Object.keys(PERSONALITIES);
-    if (personalityKeys.includes(incomingText.toLowerCase().trim())) {
-      const key = incomingText.toLowerCase().trim();
+    if (personalityKeys.includes(incomingText.trim())) {
+      const key = incomingText.trim();
       const p = PERSONALITIES[key];
       await require('./supabase').updatePreferences(entity.user_id, { voice_vibe: key, awaiting_custom_desc: false });
       await sendWhatsAppMessage(fromNumber, `${p.emoji} הסקין שונה ל*${p.name}*!`);
