@@ -26,6 +26,15 @@ ensureBucket().catch((e) => console.warn('Audio bucket warning:', e.message));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+app.get('/test/gif', async (_req, res) => {
+  try {
+    const url = await getMoodGif(80, 80);
+    res.json({ ok: !!url, url, giphy_key_set: !!process.env.GIPHY_API_KEY });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // Serve temporary audio files
 const path = require('path');
 app.use('/audio', require('express').static(getAudioDir()));
