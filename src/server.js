@@ -10,9 +10,11 @@ const { getEntityReply } = require('./claude');
 const { applyAction } = require('./actions');
 const { sendWhatsAppMessage, sendWhatsAppAudio } = require('./twilio');
 const { runDecayJob } = require('./decay');
+const cron = require('node-cron');
 const { ensureBucket, uploadAudio, getAudioDir } = require('./storage');
 const { textToSpeech } = require('./elevenlabs');
 const { transcribeAudio } = require('./whisper');
+const { getMoodGif } = require('./giphy');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -80,8 +82,9 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return res.status(200).send('status');
     }
 
-    // Check if voice was requested
+    // Check if voice or GIF was requested
     const wantsVoice = VOICE_TRIGGER.test(incomingText);
+    const wantsGif = /gif|תמונה|תמונת|איך אתה נראה|הראה לי/i.test(incomingText);
 
     await appendHistory(entity.user_id, 'user', incomingText);
     const history = await getRecentHistory(entity.user_id);
@@ -100,6 +103,18 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     // Respond to Twilio immediately (must be within ~15s)
     res.status(200).send('ok');
+
+    // Send GIF asynchronously if requested
+    if (wantsGif) {
+      setImmediate(async () => {
+        try {
+          const gifUrl = await getMoodGif(updatedState.happiness, updatedState.energy);
+          if (gifUrl) await sendWhatsAppAudio(fromNumber, gifUrl); // reuse media sender
+        } catch (e) {
+          console.error('GIF error:', e.message);
+        }
+      });
+    }
 
     // Additionally send voice asynchronously (after response sent)
     if (wantsVoice) {
@@ -128,6 +143,16 @@ app.post('/jobs/decay', async (_req, res) => {
   } catch (err) {
     console.error('Decay job error:', err);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Run decay job every 4 hours automatically
+cron.schedule('0 */4 * * *', async () => {
+  try {
+    const result = await runDecayJob();
+    console.log('Decay job ran:', result);
+  } catch (e) {
+    console.error('Decay cron error:', e.message);
   }
 });
 
