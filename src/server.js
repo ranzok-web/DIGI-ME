@@ -155,11 +155,14 @@ app.post('/webhook/whatsapp', async (req, res) => {
           if (gifUrl) {
             console.log('Sending GIF:', gifUrl);
             await sendWhatsAppAudio(fromNumber, gifUrl);
+            console.log('GIF sent successfully');
           } else {
             console.warn('No GIF URL returned from Giphy');
+            await sendWhatsAppMessage(fromNumber, 'לא מצאתי GIF הפעם 😕');
           }
         } catch (e) {
-          console.error('GIF error:', e.message);
+          console.error('GIF error:', e.message, e.stack);
+          await sendWhatsAppMessage(fromNumber, `שגיאה בשליחת GIF: ${e.message}`);
         }
       });
     }
