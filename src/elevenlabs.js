@@ -2,7 +2,7 @@
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
 // קול עברי גברי טבעי — Avri. לא ניתן לשינוי דרך env כדי למנוע שגיאות הגדרה.
-const VOICE = 'he-IL-AvriNeural';
+const VOICE = 'he-IL-HilaNeural';
 
 /**
  * מסיר אימוג'ים וסמלים שלא צריך לקרוא בקול.
