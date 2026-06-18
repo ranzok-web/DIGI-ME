@@ -162,16 +162,18 @@ app.post('/webhook/whatsapp', async (req, res) => {
         try {
           const gifUrl = await getMoodGif(updatedState.happiness, updatedState.energy);
           if (gifUrl) {
-            console.log('Sending GIF:', gifUrl);
-            await sendWhatsAppAudio(fromNumber, gifUrl);
-            console.log('GIF sent successfully');
+            console.log('Sending GIF to', fromNumber, ':', gifUrl);
+            const msg = await sendWhatsAppAudio(fromNumber, gifUrl);
+            console.log('GIF Twilio SID:', msg.sid, 'status:', msg.status);
+            // Also send the URL as text so user can open it directly
+            await sendWhatsAppMessage(fromNumber, `🎞️ ${gifUrl}`);
           } else {
             console.warn('No GIF URL returned from Giphy');
             await sendWhatsAppMessage(fromNumber, 'לא מצאתי GIF הפעם 😕');
           }
         } catch (e) {
-          console.error('GIF error:', e.message, e.stack);
-          await sendWhatsAppMessage(fromNumber, `שגיאה בשליחת GIF: ${e.message}`);
+          console.error('GIF error:', e.message);
+          await sendWhatsAppMessage(fromNumber, `שגיאה: ${e.message}`);
         }
       });
     }
