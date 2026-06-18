@@ -58,8 +58,12 @@ app.post('/webhook/whatsapp', async (req, res) => {
     await updateEntityState(entity.user_id, updatedState);
     await appendHistory(entity.user_id, 'entity', reply.speech);
 
-    // Always send text reply
-    await sendWhatsAppMessage(fromNumber, reply.speech);
+    // If voice requested, send a brief placeholder; otherwise send full text
+    if (wantsVoice) {
+      await sendWhatsAppMessage(fromNumber, '🎙️ שניה...');
+    } else {
+      await sendWhatsAppMessage(fromNumber, reply.speech);
+    }
 
     // Respond to Twilio immediately (must be within ~15s)
     res.status(200).send('ok');
