@@ -26,8 +26,8 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const path = require('path');
 app.use('/audio', require('express').static(getAudioDir()));
 
-// Detect voice request: user sent "דבר אלי" / "speak" / 🎙️ etc.
-const VOICE_TRIGGER = /^(דבר|קול|speak|voice|🎙️?\s*$)/i;
+// Detect voice request — any of these words/phrases trigger audio reply
+const VOICE_TRIGGER = /דבר|קול|הקלטה|שמע|speak|voice|audio|🎙/i;
 
 // A. The Reactive Flow — WhatsApp inbound webhook (Twilio)
 app.post('/webhook/whatsapp', async (req, res) => {
