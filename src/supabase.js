@@ -5,19 +5,23 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function getOrCreateEntity(whatsappNumber) {
-  const { data: existing, error: findErr } = await supabase
-    .from('users_entities')
-    .select('*')
-    .eq('whatsapp_number', whatsappNumber)
-    .maybeSingle();
+async function getOrCreateEntity(whatsappNumber, userId = null) {
+  // Lookup by user_id directly (app) or by whatsapp_number (WhatsApp bot)
+  const query = userId
+    ? supabase.from('users_entities').select('*').eq('user_id', userId)
+    : supabase.from('users_entities').select('*').eq('whatsapp_number', whatsappNumber);
 
+  const { data: existing, error: findErr } = await query.maybeSingle();
   if (findErr) throw findErr;
   if (existing) return existing;
 
+  const insertData = userId
+    ? { user_id: userId }
+    : { whatsapp_number: whatsappNumber };
+
   const { data: created, error: createErr } = await supabase
     .from('users_entities')
-    .insert({ whatsapp_number: whatsappNumber })
+    .insert(insertData)
     .select('*')
     .single();
 

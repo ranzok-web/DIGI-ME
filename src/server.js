@@ -301,6 +301,47 @@ app.post('/webhook/whatsapp', async (req, res) => {
   }
 });
 
+// ─── App API endpoints (used by mobile app) ───────────────────────────────────
+
+// POST /app/action — perform a care action from the app
+app.post('/app/action', async (req, res) => {
+  try {
+    const { user_id, action } = req.body;
+    if (!user_id || !action) return res.status(400).json({ error: 'missing params' });
+
+    const entity = await getOrCreateEntity(null, user_id);
+    const s = { ...DEFAULT_STATE, ...entity.entity_state };
+    const newState = applyAction(s, action, {});
+    await updateEntityState(entity.user_id, newState);
+    res.json({ ok: true, state: newState });
+  } catch (e) {
+    console.error('App action error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /app/chat — send a chat message from the app
+app.post('/app/chat', async (req, res) => {
+  try {
+    const { user_id, message } = req.body;
+    if (!user_id || !message) return res.status(400).json({ error: 'missing params' });
+
+    const entity = await getOrCreateEntity(null, user_id);
+    await appendHistory(entity.user_id, 'user', message);
+    const history = await getRecentHistory(entity.user_id);
+    const reply = await getEntityReply(entity, history, message);
+    const updatedState = applyAction(entity.entity_state, reply.action, reply.mood_delta);
+    await updateEntityState(entity.user_id, updatedState);
+    await appendHistory(entity.user_id, 'entity', reply.speech);
+    res.json({ ok: true, speech: reply.speech, state: updatedState });
+  } catch (e) {
+    console.error('App chat error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 // Manual trigger for the proactive decay job
 app.post('/jobs/decay', async (_req, res) => {
   try {
