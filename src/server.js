@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // Serve PWA at /app
+const path = require('path');
 app.use('/app', express.static(path.join(__dirname, '../public')));
 app.get('/app', (_req, res) => res.sendFile(path.join(__dirname, '../public/index.html')));
 
@@ -41,7 +42,6 @@ app.get('/test/gif', async (_req, res) => {
 });
 
 // Serve temporary audio files
-const path = require('path');
 app.use('/audio', require('express').static(getAudioDir()));
 
 // Detect voice request — any of these words/phrases trigger audio reply
