@@ -22,6 +22,10 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+// Serve PWA at /app
+app.use('/app', express.static(path.join(__dirname, '../public')));
+app.get('/app', (_req, res) => res.sendFile(path.join(__dirname, '../public/index.html')));
+
 // Ensure Supabase audio bucket exists on startup
 ensureBucket().catch((e) => console.warn('Audio bucket warning:', e.message));
 
@@ -306,10 +310,10 @@ app.post('/webhook/whatsapp', async (req, res) => {
 // POST /app/action — perform a care action from the app
 app.post('/app/action', async (req, res) => {
   try {
-    const { user_id, action } = req.body;
-    if (!user_id || !action) return res.status(400).json({ error: 'missing params' });
+    const { whatsapp_number, action } = req.body;
+    if (!whatsapp_number || !action) return res.status(400).json({ error: 'missing params' });
 
-    const entity = await getOrCreateEntity(null, user_id);
+    const entity = await getOrCreateEntity(whatsapp_number);
     const s = { ...DEFAULT_STATE, ...entity.entity_state };
     const newState = applyAction(s, action, {});
     await updateEntityState(entity.user_id, newState);
@@ -323,10 +327,10 @@ app.post('/app/action', async (req, res) => {
 // POST /app/chat — send a chat message from the app
 app.post('/app/chat', async (req, res) => {
   try {
-    const { user_id, message } = req.body;
-    if (!user_id || !message) return res.status(400).json({ error: 'missing params' });
+    const { whatsapp_number, message } = req.body;
+    if (!whatsapp_number || !message) return res.status(400).json({ error: 'missing params' });
 
-    const entity = await getOrCreateEntity(null, user_id);
+    const entity = await getOrCreateEntity(whatsapp_number);
     await appendHistory(entity.user_id, 'user', message);
     const history = await getRecentHistory(entity.user_id);
     const reply = await getEntityReply(entity, history, message);

@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DIGI ME">
+<meta name="theme-color" content="#7c3aed">
+<title>DIGI ME</title>
+<link rel="manifest" href="/app/manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #1a1a2e;
+  color: #fff;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  direction: rtl;
+}
+
+/* ── Screens ── */
+.screen { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* ── Tab bar ── */
+.tabbar {
+  display: flex;
+  background: #0d0d1a;
+  border-top: 1px solid rgba(124,58,237,0.3);
+  padding-bottom: env(safe-area-inset-bottom, 10px);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0 6px; cursor: pointer; transition: opacity .2s;
+  border: none; background: none; color: #555; font-size: 11px;
+}
+.tab.active { color: #a78bfa; }
+.tab-icon { font-size: 22px; margin-bottom: 2px; }
+
+/* ── Home screen ── */
+#home {
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  overflow-y: auto;
+}
+.entity-card {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32px 20px 24px;
+  background: rgba(255,255,255,0.04);
+  margin: 16px; border-radius: 24px;
+  border: 1px solid rgba(124,58,237,0.25);
+}
+.entity-emoji { font-size: 80px; line-height: 1; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.entity-name { font-size: 22px; font-weight: 700; margin-top: 10px; }
+.entity-mood { font-size: 32px; margin-top: 4px; }
+.skin-label { color: #a78bfa; font-size: 13px; margin-top: 4px; }
+
+.stats-card, .actions-card {
+  background: rgba(255,255,255,0.04); border-radius: 18px;
+  padding: 16px; margin: 0 16px 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.section-title { color: #a78bfa; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+
+.stat-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
+.stat-label { width: 72px; font-size: 12px; color: #ccc; text-align: right; }
+.stat-track { flex: 1; height: 8px; background: #2a2a3e; border-radius: 4px; overflow: hidden; }
+.stat-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.stat-val { width: 28px; font-size: 11px; font-weight: 700; text-align: center; }
+
+.hunger-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 4px; }
+.hunger-label { color: #888; font-size: 12px; }
+.hunger-val { color: #fff; font-size: 12px; font-weight: 700; }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.action-btn {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 12px 6px; border-radius: 14px; cursor: pointer;
+  border: none; font-size: 12px; color: #fff; transition: transform .1s, opacity .2s;
+  background: #7c3aed;
+}
+.action-btn.bad { background: #9f1239; }
+.action-btn:active { transform: scale(0.94); opacity: 0.8; }
+.action-btn.loading { opacity: 0.5; pointer-events: none; }
+.action-emoji { font-size: 24px; margin-bottom: 4px; }
+
+.revive-btn {
+  margin-top: 12px; background: #7c3aed; color: #fff;
+  border: none; border-radius: 20px; padding: 10px 28px;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+}
+
+/* ── Chat screen ── */
+#chat {
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 100%);
+  display: flex; flex-direction: column;
+}
+.chat-header {
+  padding: 16px 20px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  background: rgba(0,0,0,0.3);
+  font-size: 16px; font-weight: 700; text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.bubble {
+  max-width: 78%; padding: 11px 14px; border-radius: 18px;
+  font-size: 15px; line-height: 1.5; word-break: break-word;
+}
+.bubble.user { align-self: flex-start; background: #7c3aed; border-bottom-left-radius: 4px; }
+.bubble.entity { align-self: flex-end; background: rgba(255,255,255,0.1); border-bottom-right-radius: 4px; }
+.input-row {
+  display: flex; gap: 8px; padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0,0,0,0.3);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.chat-input {
+  flex: 1; background: rgba(255,255,255,0.08); border: none; border-radius: 22px;
+  padding: 11px 16px; color: #fff; font-size: 15px; outline: none;
+  font-family: inherit; direction: rtl;
+}
+.chat-input::placeholder { color: #555; }
+.send-btn {
+  background: #7c3aed; border: none; border-radius: 22px;
+  padding: 11px 18px; color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; flex-shrink: 0;
+}
+.typing { color: #a78bfa; font-size: 13px; padding: 0 16px 8px; text-align: left; min-height: 24px; }
+
+/* ── Settings screen ── */
+#settings {
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 100%);
+  overflow-y: auto;
+}
+.settings-header {
+  font-size: 20px; font-weight: 700; text-align: center;
+  padding: 24px 20px 16px;
+  padding-top: calc(24px + env(safe-area-inset-top, 0px));
+}
+.skin-btn {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 13px 14px; border-radius: 12px; margin-bottom: 8px;
+  background: rgba(255,255,255,0.05); cursor: pointer;
+  border: 1px solid transparent; color: #ccc; font-size: 14px;
+  transition: background .15s;
+}
+.skin-btn.active { background: rgba(124,58,237,0.3); border-color: #7c3aed; color: #fff; font-weight: 700; }
+.check { color: #a78bfa; font-size: 18px; }
+.custom-box { margin-top: 8px; }
+.custom-label { color: #aaa; font-size: 12px; margin-bottom: 6px; text-align: right; }
+.custom-input {
+  width: 100%; background: rgba(255,255,255,0.08); border: none;
+  border-radius: 10px; padding: 10px 12px; color: #fff;
+  font-size: 14px; direction: rtl; font-family: inherit;
+  min-height: 70px; resize: none; outline: none;
+}
+.schedule-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.schedule-label { color: #ccc; font-size: 14px; }
+.hour-input {
+  background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+  padding: 8px 12px; color: #fff; font-size: 16px; width: 64px;
+  text-align: center; font-family: inherit; outline: none;
+}
+.save-btn {
+  width: 100%; background: #7c3aed; border: none; border-radius: 12px;
+  padding: 13px; color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; margin-top: 10px; font-family: inherit;
+}
+.save-btn:active { opacity: 0.8; }
+
+/* ── Login screen ── */
+#login {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 32px;
+  background: linear-gradient(160deg, #1a1a2e 0%, #0f3460 100%);
+}
+.login-emoji { font-size: 80px; margin-bottom: 16px; animation: float 3s ease-in-out infinite; }
+.login-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.login-sub { color: #a78bfa; font-size: 15px; margin-bottom: 32px; text-align: center; }
+.login-input {
+  width: 100%; background: rgba(255,255,255,0.08); border: none; border-radius: 14px;
+  padding: 14px 16px; color: #fff; font-size: 16px; direction: ltr;
+  font-family: inherit; outline: none; margin-bottom: 12px; text-align: left;
+}
+.login-input::placeholder { color: #555; }
+.login-btn {
+  width: 100%; background: #7c3aed; border: none; border-radius: 14px;
+  padding: 14px; color: #fff; font-size: 17px; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin-top: 4px;
+}
+.login-hint { color: #666; font-size: 12px; margin-top: 16px; text-align: center; line-height: 1.6; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; padding: 10px 20px; border-radius: 20px;
+  font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none;
+  white-space: nowrap; z-index: 999;
+}
+.toast.show { opacity: 1; }
+
+/* ── Spinner ── */
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login" class="screen active">
+  <div class="login-emoji">🤖</div>
+  <div class="login-title">DIGI ME</div>
+  <div class="login-sub">הנשמה הדיגיטלית שלך</div>
+  <input class="login-input" id="phone-input" type="tel" placeholder="מספר טלפון (052...)" dir="ltr">
+  <button class="login-btn" onclick="doLogin()">כניסה</button>
+  <div class="login-hint">הזן את אותו מספר טלפון שאיתו שלחת הודעה לבוט בוואטסאפ.<br>פורמט: 0521234567</div>
+</div>
+
+<!-- Home -->
+<div id="home" class="screen">
+  <div style="flex:1;overflow-y:auto;background:linear-gradient(160deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)">
+    <div class="entity-card">
+      <div class="entity-emoji" id="entity-emoji">😎</div>
+      <div class="entity-name" id="entity-name">DIGI ME</div>
+      <div class="entity-mood" id="entity-mood">😊</div>
+      <div class="skin-label" id="skin-label">ערסית</div>
+      <button class="revive-btn" id="revive-btn" style="display:none" onclick="doAction('revive')">💫 החייה אותי</button>
+    </div>
+
+    <div class="stats-card">
+      <div class="section-title">📊 מצב</div>
+      <div class="stat-row">
+        <div class="stat-label">😊 אושר</div>
+        <div class="stat-track"><div class="stat-fill" id="bar-happiness" style="width:80%;background:#4CAF50"></div></div>
+        <div class="stat-val" id="val-happiness">80</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">⚡ אנרגיה</div>
+        <div class="stat-track"><div class="stat-fill" id="bar-energy" style="width:80%;background:#4CAF50"></div></div>
+        <div class="stat-val" id="val-energy">80</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">❤️ קשר</div>
+        <div class="stat-track"><div class="stat-fill" id="bar-bond" style="width:50%;background:#FF9800"></div></div>
+        <div class="stat-val" id="val-bond">50</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">🧼 ניקיון</div>
+        <div class="stat-track"><div class="stat-fill" id="bar-bot_clean" style="width:100%;background:#4CAF50"></div></div>
+        <div class="stat-val" id="val-bot_clean">100</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">🏠 בית</div>
+        <div class="stat-track"><div class="stat-fill" id="bar-house_clean" style="width:100%;background:#4CAF50"></div></div>
+        <div class="stat-val" id="val-house_clean">100</div>
+      </div>
+      <div class="hunger-row">
+        <div class="hunger-label">רעב:</div>
+        <div class="hunger-val" id="hunger-val">שבע 😊</div>
+      </div>
+    </div>
+
+    <div class="actions-card">
+      <div class="section-title">💚 טיפול</div>
+      <div class="grid">
+        <button class="action-btn" onclick="doAction('feed')"><div class="action-emoji">🍔</div>האכל</button>
+        <button class="action-btn" onclick="doAction('clean')"><div class="action-emoji">🧼</div>נקה</button>
+        <button class="action-btn" onclick="doAction('clean_house')"><div class="action-emoji">🏠</div>נקה בית</button>
+        <button class="action-btn" onclick="doAction('gift')"><div class="action-emoji">🎁</div>מתנה</button>
+        <button class="action-btn" onclick="doAction('hug')"><div class="action-emoji">🤗</div>חיבוק</button>
+        <button class="action-btn" onclick="doAction('praise')"><div class="action-emoji">⭐</div>שבח</button>
+        <button class="action-btn" onclick="doAction('game')"><div class="action-emoji">🎮</div>משחק</button>
+        <button class="action-btn" onclick="doAction('song')"><div class="action-emoji">🎵</div>שיר</button>
+        <button class="action-btn" onclick="doAction('walk')"><div class="action-emoji">🚶</div>טיול</button>
+      </div>
+    </div>
+
+    <div class="actions-card" style="margin-bottom:24px">
+      <div class="section-title">❌ שליליות</div>
+      <div class="grid">
+        <button class="action-btn bad" onclick="doAction('hit')"><div class="action-emoji">👊</div>מכה</button>
+        <button class="action-btn bad" onclick="doAction('yell')"><div class="action-emoji">😤</div>צעקה</button>
+        <button class="action-btn bad" onclick="doAction('insult')"><div class="action-emoji">💢</div>גידוף</button>
+        <button class="action-btn bad" onclick="doAction('ignore')"><div class="action-emoji">🙈</div>התעלמות</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chat -->
+<div id="chat" class="screen" style="display:none;flex-direction:column">
+  <div class="chat-header">💬 שיחה עם <span id="chat-name">DIGI ME</span></div>
+  <div class="messages" id="messages"></div>
+  <div class="typing" id="typing"></div>
+  <div class="input-row">
+    <button class="send-btn" onclick="sendChat()">שלח</button>
+    <input class="chat-input" id="chat-input" placeholder="כתוב הודעה..." onkeydown="if(event.key==='Enter')sendChat()">
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settings" class="screen" style="display:none">
+  <div class="settings-header">⚙️ הגדרות</div>
+  <div style="padding:0 16px 32px">
+    <div class="stats-card" style="margin:0 0 16px">
+      <div class="section-title">🎭 אישיות</div>
+      <div id="skin-list"></div>
+      <div class="custom-box" id="custom-box" style="display:none">
+        <div class="custom-label">תאר את האישיות המותאמת:</div>
+        <textarea class="custom-input" id="custom-desc" placeholder="למשל: רובוט ממאדים שמדבר בגוף שלישי ואוהב מתמטיקה..."></textarea>
+        <button class="save-btn" onclick="saveCustom()">שמור תיאור</button>
+      </div>
+    </div>
+    <div class="stats-card">
+      <div class="section-title">⏰ הודעות אוטומטיות</div>
+      <div class="schedule-row">
+        <span class="schedule-label">🌅 בוקר (שעה 0-23):</span>
+        <input class="hour-input" id="morning-hour" type="number" min="0" max="23" placeholder="8" dir="ltr">
+      </div>
+      <div class="schedule-row">
+        <span class="schedule-label">🌙 ערב (שעה 0-23):</span>
+        <input class="hour-input" id="evening-hour" type="number" min="0" max="23" placeholder="20" dir="ltr">
+      </div>
+      <button class="save-btn" onclick="saveSchedule()">שמור שעות</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tab bar (hidden during login) -->
+<div class="tabbar" id="tabbar" style="display:none">
+  <button class="tab active" onclick="showTab('home')" id="tab-home">
+    <div class="tab-icon">🏠</div>בית
+  </button>
+  <button class="tab" onclick="showTab('chat')" id="tab-chat">
+    <div class="tab-icon">💬</div>צ׳אט
+  </button>
+  <button class="tab" onclick="showTab('settings')" id="tab-settings">
+    <div class="tab-icon">⚙️</div>הגדרות
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://lvjtmrwlvpqkmfwzmrcl.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2anRtcndsdnBxa21md3ptcmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4OTQzMzAsImV4cCI6MjA5NjQ3MDMzMH0.i4MrvKRuulIb-arK-W_bfrGZ4flkydWTXp8PKf4nVCA';
+const BACKEND = '';  // same origin
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let userId = null;
+let entityData = null;
+let realtimeSub = null;
+
+const SKIN_NAMES = {
+  'בינה':'🤖 בינה','מנכ"ל':'💼 מנכ"ל','רובינס':'🔥 רובינס',
+  "ג'וקר":'🃏 ג׳וקר','יודה':'🌿 יודה','ערסית':'😎 ערסית',
+  'פילוסוף':'🧠 פילוסוף','מותאם':'✨ מותאם אישית'
+};
+const SKIN_EMOJI = {
+  'בינה':'🤖','מנכ"ל':'💼','רובינס':'🔥',"ג'וקר":'🃏',
+  'יודה':'🌿','ערסית':'😎','פילוסוף':'🧠','מותאם':'✨'
+};
+
+function statColor(v) {
+  return v >= 70 ? '#4CAF50' : v >= 40 ? '#FF9800' : '#F44336';
+}
+
+function hoursSince(ts) {
+  if (!ts) return 999;
+  return (Date.now() - new Date(ts).getTime()) / 3600000;
+}
+
+function hungerLabel(state) {
+  if (!state.is_alive) return 'מת 💀';
+  const h = hoursSince(state.last_fed);
+  if (h >= 12) return 'תרדמת 😵';
+  if (h >= 7) return 'רעב קיצוני 😰';
+  if (h >= 5) return 'רעב 🍽️';
+  if (h >= 3) return 'קצת רעב';
+  return 'שבע 😊';
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Login ──
+function doLogin() {
+  let phone = document.getElementById('phone-input').value.trim();
+  if (!phone) { toast('הזן מספר טלפון'); return; }
+  // normalize
+  if (phone.startsWith('0')) phone = '+972' + phone.slice(1);
+  if (!phone.startsWith('+')) phone = '+972' + phone;
+  userId = 'whatsapp:' + phone;
+  localStorage.setItem('digime_user', userId);
+  startApp();
+}
+
+// ── App start ──
+async function startApp() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('tabbar').style.display = 'flex';
+  showTab('home');
+  await loadEntity();
+  subscribeRealtime();
+  buildSkinList();
+  loadSchedule();
+}
+
+async function loadEntity() {
+  const { data } = await sb.from('users_entities').select('*').eq('whatsapp_number', userId).maybeSingle();
+  if (!data) { toast('לא נמצא חשבון — שלח הודעה לבוט בוואטסאפ תחילה'); return; }
+  entityData = data;
+  renderHome();
+}
+
+function subscribeRealtime() {
+  if (realtimeSub) sb.removeChannel(realtimeSub);
+  realtimeSub = sb.channel('entity-' + userId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users_entities', filter: `whatsapp_number=eq.${userId}` },
+      payload => { entityData = payload.new; renderHome(); })
+    .subscribe();
+}
+
+function renderHome() {
+  if (!entityData) return;
+  const s = entityData.entity_state || {};
+  const prefs = entityData.preferences || {};
+  const skin = prefs.voice_vibe || 'ערסית';
+  const alive = s.is_alive !== false;
+
+  document.getElementById('entity-emoji').textContent = SKIN_EMOJI[skin] || '😊';
+  document.getElementById('entity-name').textContent = entityData.entity_name || 'DIGI ME';
+  document.getElementById('skin-label').textContent = SKIN_NAMES[skin] || skin;
+  document.getElementById('chat-name').textContent = entityData.entity_name || 'DIGI ME';
+
+  const mood = !alive ? '💀' : s.happiness >= 70 ? '😄' : s.happiness >= 40 ? '😐' : '😢';
+  document.getElementById('entity-mood').textContent = mood;
+  document.getElementById('revive-btn').style.display = alive ? 'none' : 'inline-block';
+
+  function setStat(key, val) {
+    const v = Math.round(val ?? 0);
+    document.getElementById('bar-' + key).style.width = v + '%';
+    document.getElementById('bar-' + key).style.background = statColor(v);
+    document.getElementById('val-' + key).textContent = v;
+    document.getElementById('val-' + key).style.color = statColor(v);
+  }
+  setStat('happiness', s.happiness ?? 80);
+  setStat('energy', s.energy ?? 80);
+  setStat('bond', s.bond ?? 50);
+  setStat('bot_clean', s.bot_clean ?? 100);
+  setStat('house_clean', s.house_clean ?? 100);
+  document.getElementById('hunger-val').textContent = hungerLabel(s);
+}
+
+// ── Actions ──
+async function doAction(action) {
+  if (!entityData) return;
+  const btns = document.querySelectorAll('.action-btn');
+  btns.forEach(b => b.classList.add('loading'));
+
+  try {
+    const res = await fetch(BACKEND + '/app/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsapp_number: userId, action })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      entityData.entity_state = data.state;
+      renderHome();
+      const labels = { feed:'😋 אכלת!', clean:'✨ נקי!', clean_house:'🏠 הבית נקי!', gift:'🎁 מתנה!', hug:'🤗 חיבוק!', praise:'⭐ שיבחת!', game:'🎮 שיחקתם!', song:'🎵 שרתם!', walk:'🚶 טיול!', hit:'👊 מכה...', yell:'😤 צעקה...', insult:'💢 גידוף...', ignore:'🙈 התעלמות...', revive:'💫 חזר לחיים!' };
+      toast(labels[action] || '✓');
+    }
+  } catch(e) { toast('שגיאה בחיבור'); }
+
+  btns.forEach(b => b.classList.remove('loading'));
+}
+
+// ── Chat ──
+async function loadHistory() {
+  const { data } = await sb.from('conversation_history').select('*').eq('user_id', entityData?.user_id).order('created_at', { ascending: true }).limit(30);
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  (data || []).forEach(m => addBubble(m.role === 'user' ? 'user' : 'entity', m.content));
+  container.scrollTop = container.scrollHeight;
+}
+
+function addBubble(role, text) {
+  const div = document.createElement('div');
+  div.className = 'bubble ' + role;
+  div.textContent = text;
+  document.getElementById('messages').appendChild(div);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addBubble('user', text);
+  document.getElementById('typing').textContent = 'מקליד...';
+
+  try {
+    const res = await fetch(BACKEND + '/app/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsapp_number: userId, message: text })
+    });
+    const data = await res.json();
+    document.getElementById('typing').textContent = '';
+    if (data.speech) {
+      addBubble('entity', data.speech);
+      entityData.entity_state = data.state;
+      renderHome();
+    }
+  } catch(e) {
+    document.getElementById('typing').textContent = '';
+    addBubble('entity', 'שגיאה בחיבור 😕');
+  }
+}
+
+// ── Settings ──
+function buildSkinList() {
+  const container = document.getElementById('skin-list');
+  const prefs = entityData?.preferences || {};
+  const current = prefs.voice_vibe || 'ערסית';
+  container.innerHTML = Object.entries(SKIN_NAMES).map(([key, label]) =>
+    `<div class="skin-btn ${current===key?'active':''}" onclick="selectSkin('${key}')">
+      <span>${label}</span>
+      ${current===key ? '<span class="check">✓</span>' : ''}
+    </div>`
+  ).join('');
+  document.getElementById('custom-box').style.display = current === 'מותאם' ? 'block' : 'none';
+  document.getElementById('custom-desc').value = prefs.custom_description || '';
+}
+
+async function selectSkin(key) {
+  const updates = { voice_vibe: key };
+  await sb.from('users_entities').update({ preferences: { ...entityData.preferences, ...updates } }).eq('whatsapp_number', userId);
+  entityData.preferences = { ...entityData.preferences, ...updates };
+  buildSkinList();
+  renderHome();
+  toast('אישיות שונה ל' + SKIN_NAMES[key]);
+}
+
+async function saveCustom() {
+  const desc = document.getElementById('custom-desc').value.trim();
+  if (!desc) { toast('הזן תיאור'); return; }
+  await sb.from('users_entities').update({ preferences: { ...entityData.preferences, custom_description: desc, voice_vibe: 'מותאם' } }).eq('whatsapp_number', userId);
+  entityData.preferences = { ...entityData.preferences, custom_description: desc, voice_vibe: 'מותאם' };
+  toast('נשמר!');
+}
+
+function loadSchedule() {
+  const prefs = entityData?.preferences || {};
+  if (prefs.schedule_morning !== undefined) document.getElementById('morning-hour').value = prefs.schedule_morning;
+  if (prefs.schedule_evening !== undefined) document.getElementById('evening-hour').value = prefs.schedule_evening;
+}
+
+async function saveSchedule() {
+  const m = parseInt(document.getElementById('morning-hour').value);
+  const e = parseInt(document.getElementById('evening-hour').value);
+  const updates = {};
+  if (!isNaN(m) && m >= 0 && m <= 23) updates.schedule_morning = m;
+  if (!isNaN(e) && e >= 0 && e <= 23) updates.schedule_evening = e;
+  await sb.from('users_entities').update({ preferences: { ...entityData.preferences, ...updates } }).eq('whatsapp_number', userId);
+  entityData.preferences = { ...entityData.preferences, ...updates };
+  toast('שעות נשמרו!');
+}
+
+// ── Tabs ──
+function showTab(name) {
+  ['home','chat','settings'].forEach(t => {
+    document.getElementById(t).style.display = t===name ? 'flex' : 'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+  });
+  if (name === 'chat' && entityData) loadHistory();
+  if (name === 'settings' && entityData) { buildSkinList(); loadSchedule(); }
+}
+
+// ── Auto-login ──
+window.onload = () => {
+  const saved = localStorage.getItem('digime_user');
+  if (saved) { userId = saved; startApp(); }
+};
+</script>
+</body>
+</html>
